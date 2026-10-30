@@ -24,9 +24,15 @@
       box-sizing: border-box;
     }
     h1 {
-      margin: 0 0 0.5rem 0;
+      margin: 0 0 0.25rem 0;
       font-size: 1.5rem;
       color: #1f2937;
+    }
+    .user-greeting {
+      font-size: 0.85rem;
+      color: #4b5563;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
     }
     .clock {
       font-size: 2.25rem;
@@ -76,9 +82,22 @@
       font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
-      margin-top: 1.5rem;
+      margin-top: 1.25rem;
       text-decoration: underline;
       padding: 0;
+    }
+    .btn-logout {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 0.75rem;
+      cursor: pointer;
+      margin-top: 1rem;
+      padding: 0;
+      text-decoration: none;
+    }
+    .btn-logout:hover {
+      color: #ef4444;
     }
     .manual-panel {
       display: none;
@@ -141,7 +160,7 @@
       color: #374151;
     }
 
-    /* Security Gate Modal */
+    /* Security PIN Modal */
     #gate-overlay {
       position: fixed;
       inset: 0;
@@ -161,8 +180,8 @@
     }
     .gate-box input {
       text-align: center;
-      font-size: 1.25rem;
-      letter-spacing: 0.2em;
+      font-size: 1.5rem;
+      letter-spacing: 0.25em;
       padding: 0.5rem;
       margin: 1rem 0 0.5rem 0;
     }
@@ -170,18 +189,20 @@
 </head>
 <body>
 
-  <!-- Passcode Protection Modal -->
+  <!-- Employee PIN Authentication -->
   <div id="gate-overlay">
     <div class="gate-box">
-      <h3 style="margin: 0; color: #1f2937;">Enter Passcode</h3>
-      <input type="password" id="gate-input" placeholder="" autofocus onkeydown="if(event.key==='Enter') checkGate()">
-      <button onclick="checkGate()" class="btn-submit-manual">Unlock</button>
+      <h3 style="margin: 0; color: #1f2937;">Employee PIN</h3>
+      <input type="password" id="gate-input" placeholder="••••" autofocus inputmode="numeric" onkeydown="if(event.key==='Enter') loginWithPin()">
+      <button onclick="loginWithPin()" id="btn-login" class="btn-submit-manual">Sign In</button>
       <div id="gate-error" style="color: #ef4444; font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2em;"></div>
     </div>
   </div>
 
+  <!-- Time Clock Card -->
   <div class="card" id="app-card" style="display: none;">
     <h1>Time Clock</h1>
+    <div class="user-greeting" id="user-greeting">Welcome</div>
     <div class="clock" id="live-time">--:--:--</div>
     <div class="date-info" id="live-date">Loading...</div>
     
@@ -215,33 +236,70 @@
     </div>
     
     <div id="status"></div>
+    <div>
+      <button class="btn-logout" onclick="logout()">Sign out / Switch User</button>
+    </div>
   </div>
 
   <script>
-    // 1. SET YOUR SECRET PASSCODE HERE
-    const SECRET_PASSCODE = "1984";
+    // PASTE YOUR MASTER WEB APP URL HERE
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzFjoHnDUGTPVKLvyTxxNPAFgtE5FRyY_oN_yZkOul57Pvw8EBvoruwSPV5jIMzG-jP/exec";
 
-    // 2. PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzbi65gnyhT21Yw4VELi4PUEpnfz3sy4uR5P5EnqJb47KR_9N0KnYpsPrTZnRnoWKhV/exec";
+    let currentPin = localStorage.getItem('emp_pin') || '';
+    let currentName = localStorage.getItem('emp_name') || '';
 
-    // Passcode gate check with localStorage persistence
-    function checkGate() {
-      const input = document.getElementById('gate-input').value;
-      if (input === SECRET_PASSCODE) {
-        localStorage.setItem('tc_auth_token', SECRET_PASSCODE);
-        revealApp();
-      } else {
-        document.getElementById('gate-error').textContent = 'Incorrect passcode';
+    if (currentPin && currentName) {
+      revealApp(currentName);
+    }
+
+    async function loginWithPin() {
+      const pin = document.getElementById('gate-input').value.trim();
+      const errEl = document.getElementById('gate-error');
+      const btn = document.getElementById('btn-login');
+
+      if (!pin) return;
+      btn.disabled = true;
+      errEl.textContent = 'Verifying...';
+
+      try {
+        const res = await fetch(WEB_APP_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "Verify", pin: pin })
+        });
+        const data = await res.json();
+
+        if (data.status === "success") {
+          currentPin = pin;
+          currentName = data.employeeName;
+          localStorage.setItem('emp_pin', currentPin);
+          localStorage.setItem('emp_name', currentName);
+          revealApp(currentName);
+        } else {
+          errEl.textContent = data.message || "Invalid PIN";
+        }
+      } catch (err) {
+        errEl.textContent = "Connection error. Try again.";
+      } finally {
+        btn.disabled = false;
       }
     }
 
-    function revealApp() {
+    function revealApp(name) {
       document.getElementById('gate-overlay').style.display = 'none';
       document.getElementById('app-card').style.display = 'block';
+      document.getElementById('user-greeting').textContent = `Logged in as ${name}`;
     }
 
-    if (localStorage.getItem('tc_auth_token') === SECRET_PASSCODE) {
-      revealApp();
+    function logout() {
+      localStorage.removeItem('emp_pin');
+      localStorage.removeItem('emp_name');
+      currentPin = '';
+      currentName = '';
+      document.getElementById('gate-input').value = '';
+      document.getElementById('gate-error').textContent = '';
+      document.getElementById('gate-overlay').style.display = 'flex';
+      document.getElementById('app-card').style.display = 'none';
     }
 
     function getFormattedDateTime(dateObj = new Date()) {
@@ -266,8 +324,7 @@
     document.getElementById('manual-date').value = getFormattedDateTime().dateStr;
 
     function toggleManual() {
-      const panel = document.getElementById('manual-panel');
-      panel.classList.toggle('show');
+      document.getElementById('manual-panel').classList.toggle('show');
     }
 
     async function recordPunch(action) {
@@ -275,14 +332,9 @@
       const btnIn = document.getElementById('btn-in');
       const btnOut = document.getElementById('btn-out');
 
-      if (WEB_APP_URL === "YOUR_WEB_APP_URL_HERE") {
-        statusEl.style.color = "#ef4444";
-        statusEl.textContent = "Please configure your WEB_APP_URL!";
-        return;
-      }
-
       const { dateStr, dayOfWeekStr, timeStr } = getFormattedDateTime();
       const payload = {
+        pin: currentPin,
         action: action,
         date: dateStr,
         dayOfWeek: dayOfWeekStr,
@@ -306,7 +358,7 @@
         statusEl.textContent = `✓ ${action} logged at ${timeStr}`;
       } catch (err) {
         statusEl.style.color = "#ef4444";
-        statusEl.textContent = `Error logging punch. Check your connection.`;
+        statusEl.textContent = `Error logging punch.`;
       } finally {
         btnIn.disabled = false;
         btnOut.disabled = false;
@@ -320,15 +372,9 @@
       const inVal = document.getElementById('manual-in').value;
       const outVal = document.getElementById('manual-out').value;
 
-      if (!dateVal) {
+      if (!dateVal || (!inVal && !outVal)) {
         statusEl.style.color = "#ef4444";
-        statusEl.textContent = "Please select a date.";
-        return;
-      }
-
-      if (!inVal && !outVal) {
-        statusEl.style.color = "#ef4444";
-        statusEl.textContent = "Enter at least a Punch In or Punch Out time.";
+        statusEl.textContent = "Please provide date and at least one time.";
         return;
       }
 
@@ -337,6 +383,7 @@
       const dayOfWeekStr = parsedDate.toLocaleDateString('en-US', { weekday: 'long' });
 
       const payload = {
+        pin: currentPin,
         action: "Manual Entry",
         date: dateVal,
         dayOfWeek: dayOfWeekStr,
