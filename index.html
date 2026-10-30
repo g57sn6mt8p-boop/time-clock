@@ -34,6 +34,16 @@
       margin-bottom: 0.5rem;
       font-weight: 500;
     }
+    .status-badge {
+      display: inline-block;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    .badge-in { background-color: #d1fae5; color: #065f46; }
+    .badge-out { background-color: #f3f4f6; color: #4b5563; }
     .clock {
       font-size: 2.25rem;
       font-weight: 700;
@@ -43,8 +53,27 @@
     }
     .date-info {
       color: #6b7280;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
       font-size: 0.95rem;
+    }
+    .break-selection {
+      margin-bottom: 1rem;
+      text-align: left;
+    }
+    .break-selection label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+    }
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+      background: white;
     }
     .btn-group {
       display: flex;
@@ -60,21 +89,14 @@
       cursor: pointer;
       transition: opacity 0.2s, transform 0.1s;
     }
-    button:active {
-      transform: scale(0.98);
-    }
+    button:active { transform: scale(0.98); }
     button:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
+      transform: none !important;
     }
-    .btn-in {
-      background-color: #10b981;
-      color: white;
-    }
-    .btn-out {
-      background-color: #ef4444;
-      color: white;
-    }
+    .btn-in { background-color: #10b981; color: white; }
+    .btn-out { background-color: #ef4444; color: white; }
     .btn-manual-toggle {
       background: none;
       border: none;
@@ -92,13 +114,10 @@
       color: #9ca3af;
       font-size: 0.75rem;
       cursor: pointer;
-      margin-top: 1rem;
+      margin-top: 1.25rem;
       padding: 0;
-      text-decoration: none;
     }
-    .btn-logout:hover {
-      color: #ef4444;
-    }
+    .btn-logout:hover { color: #ef4444; }
     .manual-panel {
       display: none;
       margin-top: 1.25rem;
@@ -106,12 +125,8 @@
       border-top: 1px dashed #e5e7eb;
       text-align: left;
     }
-    .manual-panel.show {
-      display: block;
-    }
-    .form-group {
-      margin-bottom: 0.85rem;
-    }
+    .manual-panel.show { display: block; }
+    .form-group { margin-bottom: 0.85rem; }
     .form-group label {
       display: block;
       font-size: 0.75rem;
@@ -121,10 +136,7 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    .form-row {
-      display: flex;
-      gap: 0.5rem;
-    }
+    .form-row { display: flex; gap: 0.5rem; }
     input {
       width: 100%;
       padding: 0.6rem;
@@ -134,15 +146,10 @@
       box-sizing: border-box;
       font-family: inherit;
     }
-    input:focus {
+    input:focus, select:focus {
       outline: none;
       border-color: #2563eb;
       box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
-    }
-    .hint {
-      font-size: 0.75rem;
-      color: #9ca3af;
-      margin-top: 0.25rem;
     }
     .btn-submit-manual {
       width: 100%;
@@ -154,13 +161,11 @@
       margin-top: 0.5rem;
     }
     #status {
-      margin-top: 1.25rem;
+      margin-top: 1rem;
       font-size: 0.85rem;
       min-height: 1.4em;
       color: #374151;
     }
-
-    /* Security PIN Modal */
     #gate-overlay {
       position: fixed;
       inset: 0;
@@ -203,9 +208,21 @@
   <div class="card" id="app-card" style="display: none;">
     <h1>Time Clock</h1>
     <div class="user-greeting" id="user-greeting">Welcome</div>
+    <div id="status-badge" class="status-badge badge-out">Checking Status...</div>
     <div class="clock" id="live-time">--:--:--</div>
     <div class="date-info" id="live-date">Loading...</div>
     
+    <div class="break-selection">
+      <label for="shift-break">Break to Deduct on Clock-Out</label>
+      <select id="shift-break">
+        <option value="0">No Unpaid Break (0m)</option>
+        <option value="15">15 Minutes</option>
+        <option value="30">30 Minutes</option>
+        <option value="45">45 Minutes</option>
+        <option value="60">60 Minutes (1 Hour)</option>
+      </select>
+    </div>
+
     <div class="btn-group">
       <button class="btn-in" id="btn-in" onclick="recordPunch('Punch In')">Punch In</button>
       <button class="btn-out" id="btn-out" onclick="recordPunch('Punch Out')">Punch Out</button>
@@ -231,7 +248,15 @@
           <input type="time" id="manual-out" step="1">
         </div>
       </div>
-      <div class="hint">Enter In, Out, or both.</div>
+      <div class="form-group">
+        <label for="manual-break">Break Deducted</label>
+        <select id="manual-break">
+          <option value="0">None</option>
+          <option value="30">30 Minutes</option>
+          <option value="45">45 Minutes</option>
+          <option value="60">60 Minutes</option>
+        </select>
+      </div>
       <button class="btn-submit-manual" id="btn-manual" onclick="submitManual()">Log Entry</button>
     </div>
     
@@ -243,9 +268,8 @@
 
   <script>
     // PASTE YOUR MASTER WEB APP URL HERE
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzFjoHnDUGTPVKLvyTxxNPAFgtE5FRyY_oN_yZkOul57Pvw8EBvoruwSPV5jIMzG-jP/exec";
+    const WEB_APP_URL = "YOUR_MASTER_WEB_APP_URL_HERE";
 
-    // 5 MINUTES TIMEOUT IN MILLISECONDS (5 * 60 * 1000)
     const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
     let inactivityTimer = null;
 
@@ -253,15 +277,14 @@
     let currentName = localStorage.getItem('emp_name') || '';
     let lastActive = Number(localStorage.getItem('emp_last_active') || 0);
 
-    // Check if previous session is still valid (< 5 minutes)
     if (currentPin && currentName && lastActive && (Date.now() - lastActive < INACTIVITY_TIMEOUT_MS)) {
       revealApp(currentName);
       startInactivityTracker();
+      fetchCurrentStatus();
     } else {
       logout();
     }
 
-    // Reset inactivity timer on user interaction
     function resetInactivity() {
       if (!currentPin) return;
       localStorage.setItem('emp_last_active', Date.now());
@@ -302,6 +325,7 @@
           localStorage.setItem('emp_name', currentName);
           localStorage.setItem('emp_last_active', Date.now());
           revealApp(currentName);
+          applyState(data.isClockedIn, data.clockedInTime);
           startInactivityTracker();
         } else {
           errEl.textContent = data.message || "Invalid PIN";
@@ -310,6 +334,38 @@
         errEl.textContent = "Connection error. Try again.";
       } finally {
         btn.disabled = false;
+      }
+    }
+
+    async function fetchCurrentStatus() {
+      try {
+        const res = await fetch(WEB_APP_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "GetStatus", pin: currentPin })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          applyState(data.isClockedIn, data.clockedInTime);
+        }
+      } catch (e) {}
+    }
+
+    function applyState(isClockedIn, clockedInTime) {
+      const badge = document.getElementById('status-badge');
+      const btnIn = document.getElementById('btn-in');
+      const btnOut = document.getElementById('btn-out');
+
+      if (isClockedIn) {
+        badge.className = "status-badge badge-in";
+        badge.textContent = `● On Shift (Clocked in at ${clockedInTime})`;
+        btnIn.disabled = true;
+        btnOut.disabled = false;
+      } else {
+        badge.className = "status-badge badge-out";
+        badge.textContent = `○ Clocked Out`;
+        btnIn.disabled = false;
+        btnOut.disabled = true;
       }
     }
 
@@ -364,6 +420,7 @@
       const statusEl = document.getElementById('status');
       const btnIn = document.getElementById('btn-in');
       const btnOut = document.getElementById('btn-out');
+      const breakMinutes = document.getElementById('shift-break').value;
 
       const { dateStr, dayOfWeekStr, timeStr } = getFormattedDateTime();
       const payload = {
@@ -371,7 +428,8 @@
         action: action,
         date: dateStr,
         dayOfWeek: dayOfWeekStr,
-        time: timeStr
+        time: timeStr,
+        breakMinutes: action === 'Punch Out' ? breakMinutes : 0
       };
 
       btnIn.disabled = true;
@@ -380,21 +438,27 @@
       statusEl.textContent = `Recording ${action}...`;
 
       try {
-        await fetch(WEB_APP_URL, {
+        const res = await fetch(WEB_APP_URL, {
           method: "POST",
-          mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload)
         });
+        const result = await res.json();
 
-        statusEl.style.color = "#10b981";
-        statusEl.textContent = `✓ ${action} logged at ${timeStr}`;
+        if (result.status === "success") {
+          statusEl.style.color = "#10b981";
+          statusEl.textContent = `✓ ${action} logged at ${timeStr}`;
+          applyState(result.isClockedIn, result.clockedInTime);
+          document.getElementById('shift-break').value = "0";
+        } else {
+          statusEl.style.color = "#ef4444";
+          statusEl.textContent = `Error: ${result.message}`;
+          fetchCurrentStatus();
+        }
       } catch (err) {
         statusEl.style.color = "#ef4444";
         statusEl.textContent = `Error logging punch.`;
-      } finally {
-        btnIn.disabled = false;
-        btnOut.disabled = false;
+        fetchCurrentStatus();
       }
     }
 
@@ -405,6 +469,7 @@
       const dateVal = document.getElementById('manual-date').value;
       const inVal = document.getElementById('manual-in').value;
       const outVal = document.getElementById('manual-out').value;
+      const breakMin = document.getElementById('manual-break').value;
 
       if (!dateVal || (!inVal && !outVal)) {
         statusEl.style.color = "#ef4444";
@@ -422,7 +487,8 @@
         date: dateVal,
         dayOfWeek: dayOfWeekStr,
         punchIn: inVal || "",
-        punchOut: outVal || ""
+        punchOut: outVal || "",
+        breakMinutes: breakMin
       };
 
       btnManual.disabled = true;
@@ -430,18 +496,25 @@
       statusEl.textContent = "Logging manual entry...";
 
       try {
-        await fetch(WEB_APP_URL, {
+        const res = await fetch(WEB_APP_URL, {
           method: "POST",
-          mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload)
         });
+        const result = await res.json();
 
-        statusEl.style.color = "#10b981";
-        statusEl.textContent = `✓ Manual entry logged for ${dateVal}`;
-        document.getElementById('manual-in').value = "";
-        document.getElementById('manual-out').value = "";
-        toggleManual();
+        if (result.status === "success") {
+          statusEl.style.color = "#10b981";
+          statusEl.textContent = `✓ Manual entry logged for ${dateVal}`;
+          document.getElementById('manual-in').value = "";
+          document.getElementById('manual-out').value = "";
+          document.getElementById('manual-break').value = "0";
+          toggleManual();
+          applyState(result.isClockedIn, result.clockedInTime);
+        } else {
+          statusEl.style.color = "#ef4444";
+          statusEl.textContent = `Error: ${result.message}`;
+        }
       } catch (err) {
         statusEl.style.color = "#ef4444";
         statusEl.textContent = "Error saving manual entry.";
