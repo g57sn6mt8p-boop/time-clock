@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Time Clock</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f3f4f6;
+    }
+    .card {
+      background: white;
+      padding: 2.25rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      text-align: center;
+      width: 360px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.5rem;
+      color: #1f2937;
+    }
+    .clock {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: #111827;
+      margin: 0.5rem 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .date-info {
+      color: #6b7280;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+    .btn-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+    button {
+      flex: 1;
+      padding: 0.85rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-in {
+      background-color: #10b981;
+      color: white;
+    }
+    .btn-out {
+      background-color: #ef4444;
+      color: white;
+    }
+    .btn-manual-toggle {
+      background: none;
+      border: none;
+      color: #4b5563;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .manual-panel {
+      display: none;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px dashed #e5e7eb;
+      text-align: left;
+    }
+    .manual-panel.show {
+      display: block;
+    }
+    .form-group {
+      margin-bottom: 0.85rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #4b5563;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .form-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    input {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
+    }
+    .hint {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-top: 0.25rem;
+    }
+    .btn-submit-manual {
+      width: 100%;
+      background-color: #2563eb;
+      color: white;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+    }
+    #status {
+      margin-top: 1.25rem;
+      font-size: 0.85rem;
+      min-height: 1.4em;
+      color: #374151;
+    }
+
+    /* Security Gate Modal */
+    #gate-overlay {
+      position: fixed;
+      inset: 0;
+      background: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .gate-box {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      width: 280px;
+      text-align: center;
+    }
+    .gate-box input {
+      text-align: center;
+      font-size: 1.25rem;
+      letter-spacing: 0.2em;
+      padding: 0.5rem;
+      margin: 1rem 0 0.5rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Passcode Protection Modal -->
+  <div id="gate-overlay">
+    <div class="gate-box">
+      <h3 style="margin: 0; color: #1f2937;">Enter Passcode</h3>
+      <input type="password" id="gate-input" placeholder="" autofocus onkeydown="if(event.key==='Enter') checkGate()">
+      <button onclick="checkGate()" class="btn-submit-manual">Unlock</button>
+      <div id="gate-error" style="color: #ef4444; font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2em;"></div>
+    </div>
+  </div>
+
+  <div class="card" id="app-card" style="display: none;">
+    <h1>Time Clock</h1>
+    <div class="clock" id="live-time">--:--:--</div>
+    <div class="date-info" id="live-date">Loading...</div>
+    
+    <div class="btn-group">
+      <button class="btn-in" id="btn-in" onclick="recordPunch('Punch In')">Punch In</button>
+      <button class="btn-out" id="btn-out" onclick="recordPunch('Punch Out')">Punch Out</button>
+    </div>
+
+    <div>
+      <button class="btn-manual-toggle" onclick="toggleManual()">+ Manual / Missed Punch</button>
+    </div>
+
+    <!-- Manual Entry Section -->
+    <div class="manual-panel" id="manual-panel">
+      <div class="form-group">
+        <label for="manual-date">Date</label>
+        <input type="date" id="manual-date">
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label for="manual-in">Punch In</label>
+          <input type="time" id="manual-in" step="1">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label for="manual-out">Punch Out</label>
+          <input type="time" id="manual-out" step="1">
+        </div>
+      </div>
+      <div class="hint">Enter In, Out, or both.</div>
+      <button class="btn-submit-manual" id="btn-manual" onclick="submitManual()">Log Entry</button>
+    </div>
+    
+    <div id="status"></div>
+  </div>
+
+  <script>
+    // 1. SET YOUR SECRET PASSCODE HERE
+    const SECRET_PASSCODE = "1984";
+
+    // 2. PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzbi65gnyhT21Yw4VELi4PUEpnfz3sy4uR5P5EnqJb47KR_9N0KnYpsPrTZnRnoWKhV/exec";
+
+    // Passcode gate check with localStorage persistence
+    function checkGate() {
+      const input = document.getElementById('gate-input').value;
+      if (input === SECRET_PASSCODE) {
+        localStorage.setItem('tc_auth_token', SECRET_PASSCODE);
+        revealApp();
+      } else {
+        document.getElementById('gate-error').textContent = 'Incorrect passcode';
+      }
+    }
+
+    function revealApp() {
+      document.getElementById('gate-overlay').style.display = 'none';
+      document.getElementById('app-card').style.display = 'block';
+    }
+
+    if (localStorage.getItem('tc_auth_token') === SECRET_PASSCODE) {
+      revealApp();
+    }
+
+    function getFormattedDateTime(dateObj = new Date()) {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      const dayOfWeekStr = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+      const timeStr = dateObj.toLocaleTimeString('en-US', { hour12: false });
+      return { dateStr, dayOfWeekStr, timeStr };
+    }
+
+    function updateClock() {
+      const { dateStr, dayOfWeekStr, timeStr } = getFormattedDateTime();
+      document.getElementById('live-time').textContent = timeStr;
+      document.getElementById('live-date').textContent = `${dayOfWeekStr}, ${dateStr}`;
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    document.getElementById('manual-date').value = getFormattedDateTime().dateStr;
+
+    function toggleManual() {
+      const panel = document.getElementById('manual-panel');
+      panel.classList.toggle('show');
+    }
+
+    async function recordPunch(action) {
+      const statusEl = document.getElementById('status');
+      const btnIn = document.getElementById('btn-in');
+      const btnOut = document.getElementById('btn-out');
+
+      if (WEB_APP_URL === "YOUR_WEB_APP_URL_HERE") {
+        statusEl.style.color = "#ef4444";
+        statusEl.textContent = "Please configure your WEB_APP_URL!";
+        return;
+      }
+
+      const { dateStr, dayOfWeekStr, timeStr } = getFormattedDateTime();
+      const payload = {
+        action: action,
+        date: dateStr,
+        dayOfWeek: dayOfWeekStr,
+        time: timeStr
+      };
+
+      btnIn.disabled = true;
+      btnOut.disabled = true;
+      statusEl.style.color = "#6b7280";
+      statusEl.textContent = `Recording ${action}...`;
+
+      try {
+        await fetch(WEB_APP_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        statusEl.style.color = "#10b981";
+        statusEl.textContent = `✓ ${action} logged at ${timeStr}`;
+      } catch (err) {
+        statusEl.style.color = "#ef4444";
+        statusEl.textContent = `Error logging punch. Check your connection.`;
+      } finally {
+        btnIn.disabled = false;
+        btnOut.disabled = false;
+      }
+    }
+
+    async function submitManual() {
+      const statusEl = document.getElementById('status');
+      const btnManual = document.getElementById('btn-manual');
+      const dateVal = document.getElementById('manual-date').value;
+      const inVal = document.getElementById('manual-in').value;
+      const outVal = document.getElementById('manual-out').value;
+
+      if (!dateVal) {
+        statusEl.style.color = "#ef4444";
+        statusEl.textContent = "Please select a date.";
+        return;
+      }
+
+      if (!inVal && !outVal) {
+        statusEl.style.color = "#ef4444";
+        statusEl.textContent = "Enter at least a Punch In or Punch Out time.";
+        return;
+      }
+
+      const [year, month, day] = dateVal.split('-').map(Number);
+      const parsedDate = new Date(year, month - 1, day);
+      const dayOfWeekStr = parsedDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+      const payload = {
+        action: "Manual Entry",
+        date: dateVal,
+        dayOfWeek: dayOfWeekStr,
+        punchIn: inVal || "",
+        punchOut: outVal || ""
+      };
+
+      btnManual.disabled = true;
+      statusEl.style.color = "#6b7280";
+      statusEl.textContent = "Logging manual entry...";
+
+      try {
+        await fetch(WEB_APP_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        statusEl.style.color = "#10b981";
+        statusEl.textContent = `✓ Manual entry logged for ${dateVal}`;
+        document.getElementById('manual-in').value = "";
+        document.getElementById('manual-out').value = "";
+        toggleManual();
+      } catch (err) {
+        statusEl.style.color = "#ef4444";
+        statusEl.textContent = "Error saving manual entry.";
+      } finally {
+        btnManual.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
