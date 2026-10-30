@@ -237,7 +237,7 @@
     
     <div id="status"></div>
     <div>
-      <button class="btn-logout" onclick="logout()">Sign out / Switch User</button>
+      <button class="btn-logout" onclick="logout('Manual sign-out')">Sign out / Switch User</button>
     </div>
   </div>
 
@@ -245,11 +245,37 @@
     // PASTE YOUR MASTER WEB APP URL HERE
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzFjoHnDUGTPVKLvyTxxNPAFgtE5FRyY_oN_yZkOul57Pvw8EBvoruwSPV5jIMzG-jP/exec";
 
+    // 5 MINUTES TIMEOUT IN MILLISECONDS (5 * 60 * 1000)
+    const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+    let inactivityTimer = null;
+
     let currentPin = localStorage.getItem('emp_pin') || '';
     let currentName = localStorage.getItem('emp_name') || '';
+    let lastActive = Number(localStorage.getItem('emp_last_active') || 0);
 
-    if (currentPin && currentName) {
+    // Check if previous session is still valid (< 5 minutes)
+    if (currentPin && currentName && lastActive && (Date.now() - lastActive < INACTIVITY_TIMEOUT_MS)) {
       revealApp(currentName);
+      startInactivityTracker();
+    } else {
+      logout();
+    }
+
+    // Reset inactivity timer on user interaction
+    function resetInactivity() {
+      if (!currentPin) return;
+      localStorage.setItem('emp_last_active', Date.now());
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        logout('Session timed out due to inactivity.');
+      }, INACTIVITY_TIMEOUT_MS);
+    }
+
+    function startInactivityTracker() {
+      resetInactivity();
+      ['click', 'touchstart', 'keydown', 'mousemove', 'scroll'].forEach(evt => {
+        window.addEventListener(evt, resetInactivity, { passive: true });
+      });
     }
 
     async function loginWithPin() {
@@ -274,7 +300,9 @@
           currentName = data.employeeName;
           localStorage.setItem('emp_pin', currentPin);
           localStorage.setItem('emp_name', currentName);
+          localStorage.setItem('emp_last_active', Date.now());
           revealApp(currentName);
+          startInactivityTracker();
         } else {
           errEl.textContent = data.message || "Invalid PIN";
         }
@@ -289,15 +317,18 @@
       document.getElementById('gate-overlay').style.display = 'none';
       document.getElementById('app-card').style.display = 'block';
       document.getElementById('user-greeting').textContent = `Logged in as ${name}`;
+      document.getElementById('gate-error').textContent = '';
     }
 
-    function logout() {
+    function logout(reason = '') {
+      clearTimeout(inactivityTimer);
       localStorage.removeItem('emp_pin');
       localStorage.removeItem('emp_name');
+      localStorage.removeItem('emp_last_active');
       currentPin = '';
       currentName = '';
       document.getElementById('gate-input').value = '';
-      document.getElementById('gate-error').textContent = '';
+      document.getElementById('gate-error').textContent = reason;
       document.getElementById('gate-overlay').style.display = 'flex';
       document.getElementById('app-card').style.display = 'none';
     }
@@ -324,10 +355,12 @@
     document.getElementById('manual-date').value = getFormattedDateTime().dateStr;
 
     function toggleManual() {
+      resetInactivity();
       document.getElementById('manual-panel').classList.toggle('show');
     }
 
     async function recordPunch(action) {
+      resetInactivity();
       const statusEl = document.getElementById('status');
       const btnIn = document.getElementById('btn-in');
       const btnOut = document.getElementById('btn-out');
@@ -366,6 +399,7 @@
     }
 
     async function submitManual() {
+      resetInactivity();
       const statusEl = document.getElementById('status');
       const btnManual = document.getElementById('btn-manual');
       const dateVal = document.getElementById('manual-date').value;
